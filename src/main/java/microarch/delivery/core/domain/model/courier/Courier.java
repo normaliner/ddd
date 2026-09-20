@@ -1,6 +1,7 @@
 package microarch.delivery.core.domain.model.courier;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -15,7 +16,6 @@ import lombok.Getter;
 import microarch.delivery.core.domain.model.Location;
 import microarch.delivery.core.domain.model.Volume;
 import microarch.delivery.core.domain.model.assignment.Assignment;
-import microarch.delivery.core.domain.model.order.Order;
 
 @Getter
 public class Courier extends Aggregate<UUID> {
@@ -42,31 +42,44 @@ public class Courier extends Aggregate<UUID> {
         return Result.success(new Courier(name, location));
     }
 
+    public List<Assignment> getAssignments() {
+        return Collections.unmodifiableList(assignments);
+    }
+
     public boolean canTakeOrder(Volume orderVolume) {
         Objects.requireNonNull(orderVolume, "Order volume must not be null");
 
-        int currentVolumeValue = assignments.stream().mapToInt(assignment -> assignment.getVolume().getValue()).sum();
+        var totalVolume = orderVolume;
 
-        return currentVolumeValue + orderVolume.getValue() <= maxVolume.getValue();
+        for (var assignment : assignments) {
+            var additionResult = totalVolume.add(assignment.getVolume());
+
+            if (additionResult.isFailure()) {
+                return false;
+            }
+
+            totalVolume = additionResult.getValue();
+        }
+
+        return totalVolume.isLessOrEqual(maxVolume);
     }
 
-    public UnitResult<Error> takeOrder(Order order) {
-        if (order == null) {
-            return UnitResult.failure(GeneralErrors.valueIsRequired("order"));
-        }
+    public UnitResult<Error> takeOrder(UUID orderId, Volume volume, Location location) {
+        var assignmentResult = Assignment.create(orderId, volume, location);
 
-        if (assignments.stream().anyMatch(assignment -> assignment.getOrderId().equals(order.getId()))) {
-            return UnitResult.failure(Errors.orderAlreadyTaken(order.getId()));
-        }
-
-        if (!canTakeOrder(order.getVolume())) {
-            return UnitResult.failure(Errors.capacityExceeded());
-        }
-        var assignmentResult = Assignment.create(order.getId(), order.getVolume(), order.getLocation());
         if (assignmentResult.isFailure()) {
             return UnitResult.failure(assignmentResult.getError());
         }
+
+        if (assignments.stream().anyMatch(assignment -> assignment.getOrderId().equals(orderId))) {
+            return UnitResult.failure(Errors.orderAlreadyTaken(orderId));
+        }
+
+        if (!canTakeOrder(volume)) {
+            return UnitResult.failure(Errors.capacityExceeded());
+        }
         assignments.add(assignmentResult.getValue());
+
         return UnitResult.success();
     }
 

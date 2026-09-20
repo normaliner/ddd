@@ -51,9 +51,7 @@ public class Assignment extends BaseEntity<UUID> {
             return UnitResult.failure(Errors.alreadyCompleted());
         }
 
-        int distance = this.location.distanceTo(courierLocation);
-
-        if (distance > 1) {
+        if (this.location.distanceTo(courierLocation) > 1) {
             return UnitResult.failure(Errors.courierTooFarToComplete());
         }
 

@@ -1,9 +1,11 @@
 package microarch.delivery.core.domain.model;
 
 import java.util.List;
+import java.util.Objects;
 
 import libs.ddd.ValueObject;
 import libs.errs.Error;
+import libs.errs.GeneralErrors;
 import libs.errs.Guard;
 import libs.errs.Result;
 import lombok.AccessLevel;
@@ -26,9 +28,21 @@ public class Volume extends ValueObject<Volume> {
         if (err != null)
             return Result.failure(err);
 
-        var volume = new Volume(value);
+        return Result.success(new Volume(value));
+    }
 
-        return Result.success(volume);
+    public Result<Volume, Error> add(Volume volume) {
+        if (volume == null) {
+            return Result.failure(GeneralErrors.valueIsRequired("volume"));
+        }
+
+        return Volume.create(this.value + volume.value);
+    }
+
+    public boolean isLessOrEqual(Volume volume) {
+        Objects.requireNonNull(volume, "other must not be null");
+
+        return this.compareTo(volume) <= 0;
     }
 
     @Override

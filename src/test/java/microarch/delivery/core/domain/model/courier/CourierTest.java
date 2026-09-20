@@ -18,7 +18,6 @@ import microarch.delivery.core.domain.model.Volume;
 import microarch.delivery.core.domain.model.assignment.Assignment;
 import microarch.delivery.core.domain.model.assignment.AssignmentStatus;
 import microarch.delivery.core.domain.model.order.Order;
-import microarch.delivery.core.domain.model.order.OrderStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -63,28 +62,57 @@ class CourierTest {
 
     @Test
     void rejectsNullVolumeInCapacityQuery() {
-        var error = assertThrows(NullPointerException.class, () -> courier.canTakeOrder(null));
-        assertEquals("Order volume must not be null", error.getMessage());
+        assertThrows(NullPointerException.class, () -> courier.canTakeOrder(null));
         assertTrue(courier.getAssignments().isEmpty());
     }
 
-    @Test
-    void rejectsNullOrderInCommand() {
-        var result = courier.takeOrder(null);
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = "empty")
+    void rejectsMissingOrderIdInCommand(String id) {
+        assertTrue(courier.takeOrder(UUID.randomUUID(), Volume.create(20).getValueOrThrow(), location).isSuccess());
+        var before = List.copyOf(courier.getAssignments());
+        var result = courier.takeOrder(id == null ? null : new UUID(0, 0), Volume.create(1).getValueOrThrow(),
+                location);
         assertTrue(result.isFailure());
-        assertEquals(GeneralErrors.valueIsRequired("order"), result.getError());
-        assertTrue(courier.getAssignments().isEmpty());
+        assertEquals(GeneralErrors.valueIsRequired("orderId"), result.getError());
+        assertEquals(before, courier.getAssignments());
+        assertEquals(AssignmentStatus.ASSIGNED, courier.getAssignments().getFirst().getStatus());
     }
 
     @Test
-    void takesOrdersUpToExactCapacityWithoutMutatingOrder() {
+    void rejectsNullVolumeInCommand() {
+        var order = order(20);
+        assertTrue(courier.takeOrder(order.getId(), order.getVolume(), order.getLocation()).isSuccess());
+        var before = List.copyOf(courier.getAssignments());
+        var result = courier.takeOrder(order.getId(), null, location);
+        assertTrue(result.isFailure());
+        assertEquals(GeneralErrors.valueIsRequired("volume"), result.getError());
+        assertEquals(before, courier.getAssignments());
+        assertEquals(AssignmentStatus.ASSIGNED, courier.getAssignments().getFirst().getStatus());
+    }
+
+    @Test
+    void rejectsNullLocationInCommand() {
+        var order = order(20);
+        assertTrue(courier.takeOrder(order.getId(), order.getVolume(), order.getLocation()).isSuccess());
+        var before = List.copyOf(courier.getAssignments());
+        var result = courier.takeOrder(order.getId(), order.getVolume(), null);
+        assertTrue(result.isFailure());
+        assertEquals(GeneralErrors.valueIsRequired("location"), result.getError());
+        assertEquals(before, courier.getAssignments());
+        assertEquals(AssignmentStatus.ASSIGNED, courier.getAssignments().getFirst().getStatus());
+    }
+
+    @Test
+    void takesOrdersUpToExactCapacityWithProvidedValues() {
         var first = order(8);
         var second = order(12);
         assertTrue(courier.canTakeOrder(first.getVolume()));
         assertTrue(courier.getAssignments().isEmpty());
-        assertTrue(courier.takeOrder(first).isSuccess());
+        assertTrue(courier.takeOrder(first.getId(), first.getVolume(), first.getLocation()).isSuccess());
         assertTrue(courier.canTakeOrder(second.getVolume()));
-        assertTrue(courier.takeOrder(second).isSuccess());
+        assertTrue(courier.takeOrder(second.getId(), second.getVolume(), second.getLocation()).isSuccess());
         assertEquals(2, courier.getAssignments().size());
         var assignment = courier.getAssignments().getFirst();
         assertNotEquals(new UUID(0, 0), assignment.getId());
@@ -92,23 +120,46 @@ class CourierTest {
         assertEquals(first.getVolume(), assignment.getVolume());
         assertEquals(first.getLocation(), assignment.getLocation());
         assertEquals(AssignmentStatus.ASSIGNED, assignment.getStatus());
-        assertEquals(OrderStatus.CREATED, first.getStatus());
-        assertEquals(OrderStatus.CREATED, second.getStatus());
+        var secondAssignment = courier.getAssignments().get(1);
+        assertEquals(second.getId(), secondAssignment.getOrderId());
+        assertEquals(second.getVolume(), secondAssignment.getVolume());
+        assertEquals(second.getLocation(), secondAssignment.getLocation());
+        assertEquals(AssignmentStatus.ASSIGNED, secondAssignment.getStatus());
+    }
+
+    @Test
+    void protectsAssignmentsFromExternalStructuralChangesWhileReflectingCourierOperations() {
+        var assignments = courier.getAssignments();
+        assertTrue(assignments.isEmpty());
+        var order = order(20);
+        assertTrue(courier.takeOrder(order.getId(), order.getVolume(), order.getLocation()).isSuccess());
+        assertEquals(1, assignments.size());
+        var assignment = assignments.getFirst();
+        assertEquals(order.getId(), assignment.getOrderId());
+
+        assertThrows(UnsupportedOperationException.class, assignments::clear);
+        assertThrows(UnsupportedOperationException.class, () -> assignments.add(assignment));
+        assertThrows(UnsupportedOperationException.class, () -> assignments.remove(assignment));
+        assertEquals(List.of(assignment), assignments);
+        assertEquals(AssignmentStatus.ASSIGNED, assignment.getStatus());
+
+        assertTrue(courier.completeAssignment(assignment.getId()).isSuccess());
+        assertTrue(assignments.isEmpty());
+        assertEquals(AssignmentStatus.COMPLETED, assignment.getStatus());
     }
 
     @ParameterizedTest
     @ValueSource(ints = { 1, 21, 55 })
-    void rejectsCapacityOverflowWithoutVolumeAdditionFailure(int volume) {
-        assertTrue(courier.takeOrder(order(20)).isSuccess());
+    void rejectsAdditionalOrdersWhenCourierIsAtFullCapacity(int volume) {
+        assertTrue(courier.takeOrder(UUID.randomUUID(), Volume.create(20).getValueOrThrow(), location).isSuccess());
         var before = List.copyOf(courier.getAssignments());
         var order = order(volume);
         assertFalse(courier.canTakeOrder(order.getVolume()));
-        var result = courier.takeOrder(order);
+        var result = courier.takeOrder(order.getId(), order.getVolume(), order.getLocation());
         assertTrue(result.isFailure());
         assertEquals(Courier.Errors.capacityExceeded(), result.getError());
         assertEquals(before, courier.getAssignments());
         assertEquals(AssignmentStatus.ASSIGNED, courier.getAssignments().getFirst().getStatus());
-        assertEquals(OrderStatus.CREATED, order.getStatus());
     }
 
     @ParameterizedTest
@@ -116,18 +167,20 @@ class CourierTest {
     void rejectsOversizedFirstOrder(int volume) {
         var order = order(volume);
         assertFalse(courier.canTakeOrder(order.getVolume()));
-        assertEquals(Courier.Errors.capacityExceeded(), courier.takeOrder(order).getError());
+        assertEquals(Courier.Errors.capacityExceeded(),
+                courier.takeOrder(order.getId(), order.getVolume(), order.getLocation()).getError());
         assertTrue(courier.getAssignments().isEmpty());
     }
 
     @Test
     void rejectsActiveDuplicateOrderIdentity() {
         var order = order(1);
-        assertTrue(courier.takeOrder(order).isSuccess());
+        assertTrue(courier.takeOrder(order.getId(), order.getVolume(), order.getLocation()).isSuccess());
         var duplicate = Order.create(order.getId(), Volume.create(2).getValueOrThrow(), location).getValueOrThrow();
         var before = List.copyOf(courier.getAssignments());
         assertTrue(courier.canTakeOrder(duplicate.getVolume()));
-        assertEquals(Courier.Errors.orderAlreadyTaken(order.getId()), courier.takeOrder(duplicate).getError());
+        assertEquals(Courier.Errors.orderAlreadyTaken(order.getId()),
+                courier.takeOrder(duplicate.getId(), duplicate.getVolume(), duplicate.getLocation()).getError());
         assertEquals(before, courier.getAssignments());
         assertEquals(AssignmentStatus.ASSIGNED, courier.getAssignments().getFirst().getStatus());
     }
@@ -135,39 +188,22 @@ class CourierTest {
     @Test
     void allowsSameOrderAfterCompletedAssignmentIsRemoved() {
         var order = order(20);
-        assertTrue(courier.takeOrder(order).isSuccess());
+        assertTrue(courier.takeOrder(order.getId(), order.getVolume(), order.getLocation()).isSuccess());
         var completed = courier.getAssignments().getFirst();
         var completedId = completed.getId();
         assertTrue(courier.completeAssignment(completedId).isSuccess());
         assertTrue(courier.getAssignments().isEmpty());
         assertTrue(courier.canTakeOrder(order.getVolume()));
-        assertTrue(courier.takeOrder(order).isSuccess());
+        assertTrue(courier.takeOrder(order.getId(), order.getVolume(), order.getLocation()).isSuccess());
         var assignments = List.copyOf(courier.getAssignments());
         assertEquals(1, assignments.size());
         assertEquals(AssignmentStatus.COMPLETED, completed.getStatus());
         assertNotEquals(completedId, assignments.getFirst().getId());
         assertEquals(order.getId(), assignments.getFirst().getOrderId());
         assertEquals(AssignmentStatus.ASSIGNED, assignments.getFirst().getStatus());
-        assertEquals(Courier.Errors.orderAlreadyTaken(order.getId()), courier.takeOrder(order).getError());
+        assertEquals(Courier.Errors.orderAlreadyTaken(order.getId()),
+                courier.takeOrder(order.getId(), order.getVolume(), order.getLocation()).getError());
         assertEquals(assignments, courier.getAssignments());
-        assertEquals(AssignmentStatus.ASSIGNED, courier.getAssignments().getFirst().getStatus());
-    }
-
-    @ParameterizedTest
-    @ValueSource(booleans = { false, true })
-    void courierAssignmentIsIndependentOfOrderStatus(boolean completed) {
-        var order = order(1);
-        assertTrue(order.assign().isSuccess());
-        if (completed) {
-            assertTrue(order.complete().isSuccess());
-        }
-        var status = order.getStatus();
-        // Проверяется только контракт курьера, а не допустимость всего сценария доставки.
-        assertTrue(courier.canTakeOrder(order.getVolume()));
-        assertTrue(courier.takeOrder(order).isSuccess());
-        assertEquals(status, order.getStatus());
-        assertEquals(1, courier.getAssignments().size());
-        assertEquals(order.getId(), courier.getAssignments().getFirst().getOrderId());
         assertEquals(AssignmentStatus.ASSIGNED, courier.getAssignments().getFirst().getStatus());
     }
 
@@ -175,8 +211,8 @@ class CourierTest {
     @CsvSource({ "5, 5", "4, 5", "6, 5", "5, 4", "5, 6" })
     void removesOnlyCompletedTargetWhileFreeingCapacity(int x, int y) {
         var first = order(12);
-        assertTrue(courier.takeOrder(first).isSuccess());
-        assertTrue(courier.takeOrder(order(8)).isSuccess());
+        assertTrue(courier.takeOrder(first.getId(), first.getVolume(), first.getLocation()).isSuccess());
+        assertTrue(courier.takeOrder(UUID.randomUUID(), Volume.create(8).getValueOrThrow(), location).isSuccess());
         var before = List.copyOf(courier.getAssignments());
         var completedId = before.getFirst().getId();
         assertTrue(courier.move(Location.create(x, y).getValueOrThrow()).isSuccess());
@@ -192,10 +228,10 @@ class CourierTest {
                 courier.completeAssignment(completedId).getError());
         assertEquals(after, courier.getAssignments());
         assertEquals(AssignmentStatus.ASSIGNED, courier.getAssignments().getFirst().getStatus());
-        assertEquals(OrderStatus.CREATED, first.getStatus());
         assertTrue(courier.canTakeOrder(first.getVolume()));
-        assertTrue(courier.takeOrder(order(12)).isSuccess());
-        assertEquals(Courier.Errors.capacityExceeded(), courier.takeOrder(order(1)).getError());
+        assertTrue(courier.takeOrder(UUID.randomUUID(), Volume.create(12).getValueOrThrow(), location).isSuccess());
+        assertEquals(Courier.Errors.capacityExceeded(),
+                courier.takeOrder(UUID.randomUUID(), Volume.create(1).getValueOrThrow(), location).getError());
         assertEquals(2, courier.getAssignments().size());
     }
 
@@ -203,7 +239,7 @@ class CourierTest {
     @NullSource
     @ValueSource(strings = "empty")
     void rejectsMissingAssignmentId(String value) {
-        assertTrue(courier.takeOrder(order(1)).isSuccess());
+        assertTrue(courier.takeOrder(UUID.randomUUID(), Volume.create(1).getValueOrThrow(), location).isSuccess());
         var before = List.copyOf(courier.getAssignments());
         var result = courier.completeAssignment(value == null ? null : new UUID(0, 0));
         assertTrue(result.isFailure());
@@ -217,8 +253,8 @@ class CourierTest {
         var unknown = UUID.randomUUID();
         assertEquals(Courier.Errors.assignmentNotFound(unknown), courier.completeAssignment(unknown).getError());
         var other = Courier.create("Other", location).getValueOrThrow();
-        assertTrue(other.takeOrder(order(1)).isSuccess());
-        assertTrue(courier.takeOrder(order(1)).isSuccess());
+        assertTrue(other.takeOrder(UUID.randomUUID(), Volume.create(1).getValueOrThrow(), location).isSuccess());
+        assertTrue(courier.takeOrder(UUID.randomUUID(), Volume.create(1).getValueOrThrow(), location).isSuccess());
         var before = List.copyOf(courier.getAssignments());
         var foreignId = other.getAssignments().getFirst().getId();
         assertEquals(Courier.Errors.assignmentNotFound(foreignId), courier.completeAssignment(foreignId).getError());
@@ -232,13 +268,14 @@ class CourierTest {
         var farOrder = Order
                 .create(UUID.randomUUID(), Volume.create(20).getValueOrThrow(), Location.create(7, 5).getValueOrThrow())
                 .getValueOrThrow();
-        assertTrue(courier.takeOrder(farOrder).isSuccess());
+        assertTrue(courier.takeOrder(farOrder.getId(), farOrder.getVolume(), farOrder.getLocation()).isSuccess());
         var before = List.copyOf(courier.getAssignments());
         var id = before.getFirst().getId();
         assertEquals(Assignment.Errors.courierTooFarToComplete(), courier.completeAssignment(id).getError());
         assertEquals(before, courier.getAssignments());
         assertEquals(AssignmentStatus.ASSIGNED, courier.getAssignments().getFirst().getStatus());
-        assertEquals(Courier.Errors.capacityExceeded(), courier.takeOrder(order(1)).getError());
+        assertEquals(Courier.Errors.capacityExceeded(),
+                courier.takeOrder(UUID.randomUUID(), Volume.create(1).getValueOrThrow(), location).getError());
         assertTrue(courier.move(Location.create(6, 5).getValueOrThrow()).isSuccess());
         assertTrue(courier.completeAssignment(id).isSuccess());
         assertEquals(Courier.Errors.assignmentNotFound(id), courier.completeAssignment(id).getError());
