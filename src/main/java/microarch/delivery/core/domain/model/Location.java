@@ -4,10 +4,11 @@ import java.util.List;
 import java.util.Objects;
 
 import libs.ddd.ValueObject;
-import libs.errs.Guard;
-import lombok.AccessLevel;
-import libs.errs.Result;
 import libs.errs.Error;
+import libs.errs.GeneralErrors;
+import libs.errs.Guard;
+import libs.errs.Result;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 

@@ -21,12 +21,12 @@ public class Assignment extends BaseEntity<UUID> {
 
     private AssignmentStatus status;
 
-    private Assignment(UUID orderId, Volume volume, Location location) {
-        super(UUID.randomUUID());
+    private Assignment(UUID id, UUID orderId, Volume volume, Location location, AssignmentStatus status) {
+        super(id);
         this.orderId = orderId;
         this.volume = volume;
         this.location = location;
-        this.status = AssignmentStatus.ASSIGNED;
+        this.status = status;
     }
 
     public static Result<Assignment, Error> create(UUID orderId, Volume volume, Location location) {
@@ -39,7 +39,11 @@ public class Assignment extends BaseEntity<UUID> {
             return Result.failure(error);
         }
 
-        return Result.success(new Assignment(orderId, volume, location));
+        return Result.success(new Assignment(UUID.randomUUID(), orderId, volume, location, AssignmentStatus.ASSIGNED));
+    }
+
+    public static Assignment of(UUID id, UUID orderId, Volume volume, Location location, AssignmentStatus status) {
+        return new Assignment(id, orderId, volume, location, status);
     }
 
     public UnitResult<Error> complete(Location courierLocation) {
