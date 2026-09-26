@@ -18,10 +18,10 @@ public class Order extends Aggregate<UUID> {
     private final Location location;
     private OrderStatus status;
 
-    private Order(UUID id, Volume volume, Location location) {
+    private Order(UUID id, Volume volume, Location location, OrderStatus status) {
         super(id);
         this.location = location;
-        this.status = OrderStatus.CREATED;
+        this.status = status;
         this.volume = volume;
     }
 
@@ -32,7 +32,11 @@ public class Order extends Aggregate<UUID> {
         if (error != null) {
             return Result.failure(error);
         }
-        return Result.success(new Order(id, volume, location));
+        return Result.success(new Order(id, volume, location, OrderStatus.CREATED));
+    }
+
+    public static Order of(UUID id, Volume volume, Location location, OrderStatus status) {
+        return new Order(id, volume, location, status);
     }
 
     public UnitResult<Error> assign() {
