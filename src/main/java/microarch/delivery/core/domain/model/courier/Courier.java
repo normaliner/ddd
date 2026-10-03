@@ -26,11 +26,11 @@ public class Courier extends Aggregate<UUID> {
     private final List<Assignment> assignments = new ArrayList<>();
     private Location location;
 
-    private Courier(String name, Location location) {
-        super(UUID.randomUUID());
+    private Courier(UUID id, String name, Location location, Volume maxVolume) {
+        super(id);
         this.name = name;
         this.location = location;
-        this.maxVolume = Volume.create(MAX_VOLUME_LIMIT).getValueOrThrow();
+        this.maxVolume = maxVolume;
     }
 
     public static Result<Courier, Error> create(String name, Location location) {
@@ -39,7 +39,14 @@ public class Courier extends Aggregate<UUID> {
         if (error != null) {
             return Result.failure(error);
         }
-        return Result.success(new Courier(name, location));
+        return Result.success(
+                new Courier(UUID.randomUUID(), name, location, Volume.create(MAX_VOLUME_LIMIT).getValueOrThrow()));
+    }
+
+    public static Courier of(UUID id, String name, Location location, Volume maxVolume, List<Assignment> assignments) {
+        var courier = new Courier(id, name, location, maxVolume);
+        courier.assignments.addAll(assignments);
+        return courier;
     }
 
     public List<Assignment> getAssignments() {
