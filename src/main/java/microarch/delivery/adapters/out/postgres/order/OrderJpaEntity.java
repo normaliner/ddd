@@ -50,7 +50,6 @@ public class OrderJpaEntity {
     }
 
     public Order toDomain() {
-        return Order.of(id, Volume.create(volume).getValueOrThrow(),
-                Location.create(locationX, locationY).getValueOrThrow(), status);
+        return Order.of(id, Volume.mustCreate(volume), Location.mustCreate(locationX, locationY), status);
     }
 }

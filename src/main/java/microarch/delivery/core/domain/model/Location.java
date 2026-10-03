@@ -34,6 +34,10 @@ public class Location extends ValueObject<Location> {
         return Result.success(location);
     }
 
+    public static Location mustCreate(int x, int y) {
+        return create(x, y).getValueOrThrow();
+    }
+
     public int distanceTo(Location other) {
         Objects.requireNonNull(other, "other must not be null");
 

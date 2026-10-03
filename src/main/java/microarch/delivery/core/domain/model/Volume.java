@@ -31,6 +31,10 @@ public class Volume extends ValueObject<Volume> {
         return Result.success(new Volume(value));
     }
 
+    public static Volume mustCreate(int value) {
+        return create(value).getValueOrThrow();
+    }
+
     public Result<Volume, Error> add(Volume volume) {
         if (volume == null) {
             return Result.failure(GeneralErrors.valueIsRequired("volume"));

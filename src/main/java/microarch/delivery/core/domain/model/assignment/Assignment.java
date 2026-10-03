@@ -42,6 +42,10 @@ public class Assignment extends BaseEntity<UUID> {
         return Result.success(new Assignment(UUID.randomUUID(), orderId, volume, location, AssignmentStatus.ASSIGNED));
     }
 
+    public static Assignment mustCreate(UUID orderId, Volume volume, Location location) {
+        return create(orderId, volume, location).getValueOrThrow();
+    }
+
     public static Assignment of(UUID id, UUID orderId, Volume volume, Location location, AssignmentStatus status) {
         return new Assignment(id, orderId, volume, location, status);
     }

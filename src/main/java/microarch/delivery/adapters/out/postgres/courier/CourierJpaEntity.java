@@ -65,7 +65,7 @@ public class CourierJpaEntity {
     public Courier toDomain() {
         var domainAssignments = assignments.stream().map(AssignmentJpaEntity::toDomain).toList();
 
-        return Courier.of(id, name, Location.create(locationX, locationY).getValueOrThrow(),
-                Volume.create(maxVolume).getValueOrThrow(), domainAssignments);
+        return Courier.of(id, name, Location.mustCreate(locationX, locationY), Volume.mustCreate(maxVolume),
+                domainAssignments);
     }
 }

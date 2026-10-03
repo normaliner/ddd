@@ -35,6 +35,10 @@ public class Order extends Aggregate<UUID> {
         return Result.success(new Order(id, volume, location, OrderStatus.CREATED));
     }
 
+    public static Order mustCreate(UUID id, Volume volume, Location location) {
+        return create(id, volume, location).getValueOrThrow();
+    }
+
     public static Order of(UUID id, Volume volume, Location location, OrderStatus status) {
         return new Order(id, volume, location, status);
     }

@@ -1,5 +1,6 @@
 package microarch.delivery.adapters.out.postgres.order;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,4 +12,9 @@ public interface OrderJpaRepository extends JpaRepository<OrderJpaEntity, UUID> 
     Optional<OrderJpaEntity> findFirstByStatus(OrderStatus status);
 
     List<OrderJpaEntity> findAllByStatus(OrderStatus status);
+
+    List<OrderJpaEntity> findAllByStatusNot(OrderStatus status);
+
+    List<OrderJpaEntity> findAllByStatusIn(Collection<OrderStatus> statuses);
+
 }
