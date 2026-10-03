@@ -74,6 +74,10 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-quartz</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
         <dependency>
@@ -313,6 +317,7 @@
                             <modelPackage>microarch.delivery.adapters.in.http.model</modelPackage>
 
                             <configOptions>
+                                <useSpringBoot3>true</useSpringBoot3>
                                 <interfaceOnly>true</interfaceOnly>
                                 <skipDefaultInterface>true</skipDefaultInterface>
                                 <skipPom>true</skipPom>
