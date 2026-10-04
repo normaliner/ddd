@@ -1,5 +1,6 @@
 package microarch.delivery.adapters.out.postgres.order;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,6 +46,12 @@ public class OrderRepositoryImpl implements OrderRepository {
     @Override
     public List<Order> findAllAssigned() {
         return jpa.findAllByStatus(OrderStatus.ASSIGNED).stream().map(OrderJpaEntity::toDomain).toList();
+    }
+
+    @Override
+    public List<Order> findAllCreatedAndAssigned() {
+        return jpa.findAllByStatusIn(EnumSet.of(OrderStatus.CREATED, OrderStatus.ASSIGNED)).stream()
+                .map(OrderJpaEntity::toDomain).toList();
     }
 
 }

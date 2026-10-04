@@ -39,8 +39,11 @@ public class Courier extends Aggregate<UUID> {
         if (error != null) {
             return Result.failure(error);
         }
-        return Result.success(
-                new Courier(UUID.randomUUID(), name, location, Volume.create(MAX_VOLUME_LIMIT).getValueOrThrow()));
+        return Result.success(new Courier(UUID.randomUUID(), name, location, Volume.mustCreate(MAX_VOLUME_LIMIT)));
+    }
+
+    public static Courier mustCreate(String name, Location location) {
+        return create(name, location).getValueOrThrow();
     }
 
     public static Courier of(UUID id, String name, Location location, Volume maxVolume, List<Assignment> assignments) {
@@ -90,18 +93,18 @@ public class Courier extends Aggregate<UUID> {
         return UnitResult.success();
     }
 
-    public UnitResult<Error> completeAssignment(UUID assignmentId) {
-        var error = Guard.againstNullOrEmpty(assignmentId, "assignmentId");
+    public UnitResult<Error> completeAssignment(UUID orderId) {
+        var error = Guard.againstNullOrEmpty(orderId, "orderId");
 
         if (error != null) {
             return UnitResult.failure(error);
         }
 
-        var assignment = assignments.stream().filter(candidate -> candidate.getId().equals(assignmentId)).findFirst()
+        var assignment = assignments.stream().filter(candidate -> candidate.getOrderId().equals(orderId)).findFirst()
                 .orElse(null);
 
         if (assignment == null) {
-            return UnitResult.failure(Errors.assignmentNotFound(assignmentId));
+            return UnitResult.failure(Errors.assignmentNotFound(orderId));
         }
 
         var result = assignment.complete(location);
@@ -137,8 +140,8 @@ public class Courier extends Aggregate<UUID> {
             return Error.of("courier.order.already.taken", "Courier has already taken order " + orderId);
         }
 
-        public static Error assignmentNotFound(UUID assignmentId) {
-            return Error.of("courier.assignment.not.found", "Courier does not own assignment " + assignmentId);
+        public static Error assignmentNotFound(UUID orderId) {
+            return Error.of("courier.assignment.not.found", "Courier does not own assignment " + orderId);
         }
 
         public static Error moveTooFar() {

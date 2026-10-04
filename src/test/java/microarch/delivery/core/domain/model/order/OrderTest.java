@@ -16,8 +16,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class OrderTest {
     private final UUID id = UUID.randomUUID();
-    private final Volume volume = Volume.create(55).getValueOrThrow();
-    private final Location location = Location.create(5, 5).getValueOrThrow();
+    private final Volume volume = Volume.mustCreate(55);
+    private final Location location = Location.mustCreate(5, 5);
 
     @Test
     void createsOrderWithSuppliedIdentityAndValues() {
@@ -55,7 +55,7 @@ class OrderTest {
 
     @Test
     void onlyAllowsCreatedAssignedCompletedTransitions() {
-        var order = Order.create(id, volume, location).getValueOrThrow();
+        var order = Order.mustCreate(id, volume, location);
         var premature = order.complete();
         assertTrue(premature.isFailure());
         assertEquals(Order.Errors.mustBeAssigned(), premature.getError());
@@ -84,8 +84,8 @@ class OrderTest {
 
     @Test
     void equalityAndHashCodeDependOnIdentityNotStatus() {
-        var order = Order.create(id, volume, location).getValueOrThrow();
-        var sameIdentity = Order.create(id, Volume.create(1).getValueOrThrow(), location).getValueOrThrow();
+        var order = Order.mustCreate(id, volume, location);
+        var sameIdentity = Order.mustCreate(id, Volume.mustCreate(1), location);
         int hashCode = order.hashCode();
         assertTrue(order.assign().isSuccess());
         assertTrue(order.complete().isSuccess());
@@ -93,6 +93,6 @@ class OrderTest {
         assertEquals(sameIdentity, order);
         assertEquals(hashCode, order.hashCode());
         assertEquals(hashCode, sameIdentity.hashCode());
-        assertNotEquals(order, Order.create(UUID.randomUUID(), volume, location).getValueOrThrow());
+        assertNotEquals(order, Order.mustCreate(UUID.randomUUID(), volume, location));
     }
 }

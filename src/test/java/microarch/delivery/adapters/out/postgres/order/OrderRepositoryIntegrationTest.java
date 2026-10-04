@@ -23,8 +23,7 @@ class OrderRepositoryIntegrationTest extends BasePostgresContainerTest {
     private OrderRepository orderRepository;
 
     private Order newOrder(int volume, int x, int y) {
-        return Order.create(UUID.randomUUID(), Volume.create(volume).getValueOrThrow(),
-                Location.create(x, y).getValueOrThrow()).getValueOrThrow();
+        return Order.mustCreate(UUID.randomUUID(), Volume.mustCreate(volume), Location.mustCreate(x, y));
     }
 
     @Test

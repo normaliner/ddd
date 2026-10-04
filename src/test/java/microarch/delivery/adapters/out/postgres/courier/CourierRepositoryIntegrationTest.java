@@ -22,14 +22,14 @@ class CourierRepositoryIntegrationTest extends BasePostgresContainerTest {
     private CourierRepository courierRepository;
 
     private Courier newCourier(String name, int x, int y) {
-        return Courier.create(name, Location.create(x, y).getValueOrThrow()).getValueOrThrow();
+        return Courier.mustCreate(name, Location.mustCreate(x, y));
     }
 
     @Test
     void add_and_find_by_id_returns_equivalent_courier_with_assignments() {
         var courier = newCourier("Alex", 1, 2);
         var orderId = UUID.randomUUID();
-        courier.takeOrder(orderId, Volume.create(5).getValueOrThrow(), Location.create(2, 2).getValueOrThrow());
+        courier.takeOrder(orderId, Volume.mustCreate(5), Location.mustCreate(2, 2));
 
         courierRepository.add(courier);
         var loaded = courierRepository.findById(courier.getId()).orElseThrow();
@@ -42,8 +42,8 @@ class CourierRepositoryIntegrationTest extends BasePostgresContainerTest {
         assertThat(loaded.getAssignments()).hasSize(1);
         var assignment = loaded.getAssignments().get(0);
         assertThat(assignment.getOrderId()).isEqualTo(orderId);
-        assertThat(assignment.getVolume()).isEqualTo(Volume.create(5).getValueOrThrow());
-        assertThat(assignment.getLocation()).isEqualTo(Location.create(2, 2).getValueOrThrow());
+        assertThat(assignment.getVolume()).isEqualTo(Volume.mustCreate(5));
+        assertThat(assignment.getLocation()).isEqualTo(Location.mustCreate(2, 2));
         assertThat(assignment.getStatus()).isEqualTo(AssignmentStatus.ASSIGNED);
     }
 
@@ -61,22 +61,21 @@ class CourierRepositoryIntegrationTest extends BasePostgresContainerTest {
         var courier = newCourier("Sam", 1, 1);
 
         courierRepository.add(courier);
-        courier.move(Location.create(2, 1).getValueOrThrow());
+        courier.move(Location.mustCreate(2, 1));
         courierRepository.update(courier);
 
         var reloaded = courierRepository.findById(courier.getId()).orElseThrow();
-        assertThat(reloaded.getLocation()).isEqualTo(Location.create(2, 1).getValueOrThrow());
+        assertThat(reloaded.getLocation()).isEqualTo(Location.mustCreate(2, 1));
     }
 
     @Test
     void update_removes_completed_assignment_via_orphan_removal() {
         var courier = newCourier("Kate", 5, 5);
-        courier.takeOrder(UUID.randomUUID(), Volume.create(5).getValueOrThrow(),
-                Location.create(5, 5).getValueOrThrow());
+        courier.takeOrder(UUID.randomUUID(), Volume.mustCreate(5), Location.mustCreate(5, 5));
         courierRepository.add(courier);
 
-        var assignmentId = courier.getAssignments().get(0).getId();
-        courier.completeAssignment(assignmentId);
+        var orderId = courier.getAssignments().get(0).getOrderId();
+        assertThat(courier.completeAssignment(orderId).isSuccess()).isTrue();
         courierRepository.update(courier);
 
         var reloaded = courierRepository.findById(courier.getId()).orElseThrow();

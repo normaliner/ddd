@@ -26,16 +26,15 @@ class CourierDispatchServiceImplTest {
     private final CourierDispatchService service = new CourierDispatchServiceImpl();
 
     private Location location(int x, int y) {
-        return Location.create(x, y).getValueOrThrow();
+        return Location.mustCreate(x, y);
     }
 
     private Courier courier(String name, int x, int y) {
-        return Courier.create(name, location(x, y)).getValueOrThrow();
+        return Courier.mustCreate(name, location(x, y));
     }
 
     private Order order(int x, int y, int volume) {
-        return Order.create(UUID.randomUUID(), Volume.create(volume).getValueOrThrow(), location(x, y))
-                .getValueOrThrow();
+        return Order.mustCreate(UUID.randomUUID(), Volume.mustCreate(volume), location(x, y));
     }
 
     @Test
@@ -74,8 +73,7 @@ class CourierDispatchServiceImplTest {
     void skipsFullCouriersAndDispatchesToPartiallyLoadedOne() {
         var order = order(5, 5, 10);
         var fullCourier = courier("Full", 4, 5);
-        assertTrue(fullCourier.takeOrder(UUID.randomUUID(), Volume.create(20).getValueOrThrow(), location(1, 1))
-                .isSuccess());
+        assertTrue(fullCourier.takeOrder(UUID.randomUUID(), Volume.mustCreate(20), location(1, 1)).isSuccess());
         var availableCourier = courier("Available", 6, 5);
 
         var result = service.dispatch(order, List.of(fullCourier, availableCourier));
@@ -93,9 +91,8 @@ class CourierDispatchServiceImplTest {
         var order = order(5, 5, 10);
         var first = courier("First", 4, 5);
         var second = courier("Second", 6, 5);
-        assertTrue(first.takeOrder(UUID.randomUUID(), Volume.create(20).getValueOrThrow(), location(1, 1)).isSuccess());
-        assertTrue(
-                second.takeOrder(UUID.randomUUID(), Volume.create(20).getValueOrThrow(), location(1, 1)).isSuccess());
+        assertTrue(first.takeOrder(UUID.randomUUID(), Volume.mustCreate(20), location(1, 1)).isSuccess());
+        assertTrue(second.takeOrder(UUID.randomUUID(), Volume.mustCreate(20), location(1, 1)).isSuccess());
 
         var result = service.dispatch(order, List.of(first, second));
 

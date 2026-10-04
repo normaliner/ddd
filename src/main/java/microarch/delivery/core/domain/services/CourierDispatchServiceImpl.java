@@ -9,7 +9,9 @@ import libs.errs.Result;
 import microarch.delivery.core.domain.model.courier.Courier;
 import microarch.delivery.core.domain.model.order.Order;
 import microarch.delivery.core.domain.model.order.OrderStatus;
+import org.springframework.stereotype.Service;
 
+@Service
 public class CourierDispatchServiceImpl implements CourierDispatchService {
 
     @Override

@@ -55,7 +55,6 @@ public class AssignmentJpaEntity {
     }
 
     public Assignment toDomain() {
-        return Assignment.of(id, orderId, Volume.create(volume).getValueOrThrow(),
-                Location.create(locationX, locationY).getValueOrThrow(), status);
+        return Assignment.of(id, orderId, Volume.mustCreate(volume), Location.mustCreate(locationX, locationY), status);
     }
 }
