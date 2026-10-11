@@ -1,9 +1,12 @@
 package microarch.delivery.adapters.out.grpc;
 
+import java.util.concurrent.TimeUnit;
+
 import clients.geo.GeoGrpc;
 import clients.geo.GeoProto;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.StatusRuntimeException;
 import jakarta.annotation.PreDestroy;
 import libs.errs.Result;
 import microarch.delivery.ApplicationProperties;
@@ -38,16 +41,14 @@ public class GeoClientImpl implements GeoClient {
     public Result<Location, Error> getGeoLocationByStreet(String street) {
 
         var request = GeoProto.GetGeolocationRequest.newBuilder().setStreet(street).build();
-        var response = stub.getGeolocation(request);
-
-        var location = response.getLocation();
-        var locationResult = Location.create(location.getX(), location.getY());
-
-        if (locationResult.isFailure()) {
-            return Result.failure(locationResult.getError());
+        try {
+            var response = stub.withDeadlineAfter(5, TimeUnit.SECONDS).getGeolocation(request);
+            var location = response.getLocation();
+            return Location.create(location.getX(), location.getY());
+        } catch (StatusRuntimeException exception) {
+            return Result.failure(Error.of("geo.rpc.failed",
+                    "Geo request failed: " + exception.getStatus().getCode()));
         }
-
-        return Result.success(locationResult.getValue());
     }
 
 }
