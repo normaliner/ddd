@@ -22,6 +22,12 @@ public class CreateOrderCommandHandlerImpl implements CreateOrderCommandHandler 
     @Transactional
     public Result<UUID, Error> handle(CreateOrderCommand command) {
 
+        var existingOrder = orderRepository.findById(command.getOrderId());
+
+        if (existingOrder.isPresent()) {
+            return Result.success(existingOrder.get().getId());
+        }
+
         var street = command.getAddress().getStreet();
         var locationResult = geoClient.getGeoLocationByStreet(street);
 

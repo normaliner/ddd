@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ class CreateOrderCommandHandlerTest {
         var command = CreateOrderCommand.create(UUID.randomUUID(), "Russia", "Moscow", "Tverskaya", "1", "10", 15)
                 .getValueOrThrow();
         var location = Location.mustCreate(3, 7);
+        when(orderRepository.findById(command.getOrderId())).thenReturn(Optional.empty());
         when(geoClient.getGeoLocationByStreet("Tverskaya")).thenReturn(Result.success(location));
 
         var result = handler.handle(command);
@@ -51,6 +54,7 @@ class CreateOrderCommandHandlerTest {
         var command = CreateOrderCommand.create(UUID.randomUUID(), "Russia", "Moscow", "Tverskaya", "1", "10", 15)
                 .getValueOrThrow();
         var error = GeneralErrors.valueIsOutOfRange("x", 0, 1, 10);
+        when(orderRepository.findById(command.getOrderId())).thenReturn(Optional.empty());
         when(geoClient.getGeoLocationByStreet("Tverskaya")).thenReturn(Result.failure(error));
 
         var result = handler.handle(command);
@@ -58,7 +62,25 @@ class CreateOrderCommandHandlerTest {
         assertThat(result.isFailure()).isTrue();
         assertThat(result.getError()).isEqualTo(error);
         verify(geoClient).getGeoLocationByStreet("Tverskaya");
-        verifyNoInteractions(orderRepository);
+        verify(orderRepository).findById(command.getOrderId());
+        verifyNoMoreInteractions(orderRepository);
+    }
+
+    @Test
+    void returnsExistingOrderWithoutCallingGeoOrSavingAgain() {
+        var command = CreateOrderCommand.create(UUID.randomUUID(), "Russia", "Moscow", "Tverskaya", "1", "10", 15)
+                .getValueOrThrow();
+        var order = Order.create(command.getOrderId(), command.getVolume(), Location.mustCreate(3, 7))
+                .getValueOrThrow();
+        when(orderRepository.findById(command.getOrderId())).thenReturn(Optional.of(order));
+
+        var result = handler.handle(command);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getValue()).isEqualTo(order.getId());
+        verify(orderRepository).findById(command.getOrderId());
+        verifyNoMoreInteractions(orderRepository);
+        verifyNoInteractions(geoClient);
     }
 
     @Test
