@@ -1,5 +1,8 @@
 package microarch.delivery.core.application.commands;
 
+import java.util.List;
+
+import libs.ddd.DomainEventPublisher;
 import libs.errs.Error;
 import libs.errs.GeneralErrors;
 import libs.errs.UnitResult;
@@ -15,6 +18,7 @@ public class CompleteOrderCommandHandlerImpl implements CompleteOrderCommandHand
 
     private final OrderRepository orderRepository;
     private final CourierRepository courierRepository;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     @Transactional
@@ -44,6 +48,8 @@ public class CompleteOrderCommandHandlerImpl implements CompleteOrderCommandHand
 
         courierRepository.update(courier);
         orderRepository.update(order);
+
+        domainEventPublisher.publish(List.of(order));
 
         return UnitResult.success();
     }

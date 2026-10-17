@@ -24,8 +24,7 @@ public class GeoClientImpl implements GeoClient {
     @Autowired
     public GeoClientImpl(ApplicationProperties properties) {
         var grpc = properties.getGrpc().getGeoService();
-        this.channel = ManagedChannelBuilder.forAddress(
-                grpc.getHost(), grpc.getPort()).usePlaintext().build();
+        this.channel = ManagedChannelBuilder.forAddress(grpc.getHost(), grpc.getPort()).usePlaintext().build();
         this.stub = GeoGrpc.newBlockingStub(channel);
     }
 
@@ -36,7 +35,6 @@ public class GeoClientImpl implements GeoClient {
         }
     }
 
-
     @Override
     public Result<Location, Error> getGeoLocationByStreet(String street) {
 
@@ -46,8 +44,7 @@ public class GeoClientImpl implements GeoClient {
             var location = response.getLocation();
             return Location.create(location.getX(), location.getY());
         } catch (StatusRuntimeException exception) {
-            return Result.failure(Error.of("geo.rpc.failed",
-                    "Geo request failed: " + exception.getStatus().getCode()));
+            return Result.failure(Error.of("geo.rpc.failed", "Geo request failed: " + exception.getStatus().getCode()));
         }
     }
 
