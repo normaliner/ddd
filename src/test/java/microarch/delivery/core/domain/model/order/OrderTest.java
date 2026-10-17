@@ -1,6 +1,7 @@
 package microarch.delivery.core.domain.model.order;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,6 +10,8 @@ import java.util.UUID;
 import libs.errs.GeneralErrors;
 import microarch.delivery.core.domain.model.Location;
 import microarch.delivery.core.domain.model.Volume;
+import microarch.delivery.core.domain.model.order.events.OrderAssignedDomainEvent;
+import microarch.delivery.core.domain.model.order.events.OrderCompletedDomainEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
@@ -80,6 +83,41 @@ class OrderTest {
         assertEquals(id, order.getId());
         assertEquals(volume, order.getVolume());
         assertEquals(location, order.getLocation());
+    }
+
+    @Test
+    void raisesAssignedEventAfterSuccessfulTransition() {
+        var order = Order.mustCreate(id, volume, location);
+
+        assertTrue(order.assign().isSuccess());
+
+        var events = order.getDomainEvents();
+        assertEquals(1, events.size());
+        var event = assertInstanceOf(OrderAssignedDomainEvent.class, events.get(0));
+        assertEquals(id, event.getOrderId());
+    }
+
+    @Test
+    void raisesCompletedEventAfterSuccessfulTransition() {
+        var order = Order.mustCreate(id, volume, location);
+        assertTrue(order.assign().isSuccess());
+        order.clearDomainEvents();
+
+        assertTrue(order.complete().isSuccess());
+
+        var events = order.getDomainEvents();
+        assertEquals(1, events.size());
+        var event = assertInstanceOf(OrderCompletedDomainEvent.class, events.get(0));
+        assertEquals(id, event.getOrderId());
+    }
+
+    @Test
+    void raisesNoEventWhenTransitionRejected() {
+        var order = Order.mustCreate(id, volume, location);
+
+        assertTrue(order.complete().isFailure());
+
+        assertTrue(order.getDomainEvents().isEmpty());
     }
 
     @Test

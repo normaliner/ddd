@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
@@ -12,6 +13,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import libs.ddd.DomainEventPublisher;
 import libs.errs.GeneralErrors;
 import microarch.delivery.core.domain.model.Location;
 import microarch.delivery.core.domain.model.Volume;
@@ -25,8 +27,9 @@ class CompleteOrderCommandHandlerTest {
 
     private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final CourierRepository courierRepository = mock(CourierRepository.class);
+    private final DomainEventPublisher domainEventPublisher = mock(DomainEventPublisher.class);
     private final CompleteOrderCommandHandlerImpl handler = new CompleteOrderCommandHandlerImpl(orderRepository,
-            courierRepository);
+            courierRepository, domainEventPublisher);
 
     @Test
     void completesAssignmentAndOrderAndSavesBoth() {
@@ -46,6 +49,7 @@ class CompleteOrderCommandHandlerTest {
         assertThat(courier.getAssignments()).isEmpty();
         verify(orderRepository).update(order);
         verify(courierRepository).update(courier);
+        verify(domainEventPublisher).publish(any());
     }
 
     @Test
@@ -92,5 +96,6 @@ class CompleteOrderCommandHandlerTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.ASSIGNED);
         verify(orderRepository, never()).update(any());
         verify(courierRepository, never()).update(any());
+        verifyNoInteractions(domainEventPublisher);
     }
 }

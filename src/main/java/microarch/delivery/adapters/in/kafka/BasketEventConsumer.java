@@ -24,15 +24,9 @@ public class BasketEventConsumer {
 
             var address = event.getAddress();
 
-            var commandResult = CreateOrderCommand.create(
-                    UUID.fromString(event.getBasketId()),
-                    address.getCountry(),
-                    address.getCity(),
-                    address.getStreet(),
-                    address.getHouse(),
-                    address.getApartment(),
-                    event.getVolume()
-            );
+            var commandResult = CreateOrderCommand.create(UUID.fromString(event.getBasketId()), address.getCountry(),
+                    address.getCity(), address.getStreet(), address.getHouse(), address.getApartment(),
+                    event.getVolume());
 
             if (commandResult.isFailure()) {
                 throw new RuntimeException("Invalid command: " + commandResult.getError());
