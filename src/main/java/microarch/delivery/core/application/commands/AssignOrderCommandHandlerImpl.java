@@ -1,5 +1,8 @@
 package microarch.delivery.core.application.commands;
 
+import java.util.List;
+
+import libs.ddd.DomainEventPublisher;
 import libs.errs.Error;
 import libs.errs.UnitResult;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +19,7 @@ public class AssignOrderCommandHandlerImpl implements AssignOrderCommandHandler 
     private final OrderRepository orderRepository;
     private final CourierRepository courierRepository;
     private final CourierDispatchService courierDispatchService;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     @Transactional
@@ -40,6 +44,8 @@ public class AssignOrderCommandHandlerImpl implements AssignOrderCommandHandler 
 
         orderRepository.update(createdOrder);
         courierRepository.update(courier);
+
+        domainEventPublisher.publish(List.of(createdOrder));
 
         return UnitResult.success();
     }

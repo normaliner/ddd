@@ -51,23 +51,20 @@ class BasketEventConsumerTest {
         when(handler.handle(any())).thenReturn(Result.failure(error));
 
         assertThatThrownBy(() -> consumer.listen(event(UUID.randomUUID(), 15).toByteArray()))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining(error.toString());
+                .isInstanceOf(RuntimeException.class).hasMessageContaining(error.toString());
     }
 
     @Test
     void rejectsInvalidVolumeWithoutCallingHandler() {
         assertThatThrownBy(() -> consumer.listen(event(UUID.randomUUID(), 0).toByteArray()))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Invalid command");
+                .isInstanceOf(RuntimeException.class).hasMessageContaining("Invalid command");
 
         verifyNoInteractions(handler);
     }
 
     @Test
     void rejectsMalformedProtobufWithoutCallingHandler() {
-        assertThatThrownBy(() -> consumer.listen(new byte[] { (byte) 0x80 }))
-                .isInstanceOf(RuntimeException.class)
+        assertThatThrownBy(() -> consumer.listen(new byte[] { (byte) 0x80 })).isInstanceOf(RuntimeException.class)
                 .hasMessage("Failed to parse protobuf message")
                 .hasCauseInstanceOf(InvalidProtocolBufferException.class);
 
@@ -75,15 +72,9 @@ class BasketEventConsumerTest {
     }
 
     private BasketEventsProto.BasketConfirmedIntegrationEvent event(UUID basketId, int volume) {
-        return BasketEventsProto.BasketConfirmedIntegrationEvent.newBuilder()
-                .setBasketId(basketId.toString())
-                .setAddress(BasketEventsProto.Address.newBuilder()
-                        .setCountry("Russia")
-                        .setCity("Moscow")
-                        .setStreet("Tverskaya")
-                        .setHouse("1")
-                        .setApartment("10"))
-                .setVolume(volume)
-                .build();
+        return BasketEventsProto.BasketConfirmedIntegrationEvent
+                .newBuilder().setBasketId(basketId.toString()).setAddress(BasketEventsProto.Address.newBuilder()
+                        .setCountry("Russia").setCity("Moscow").setStreet("Tverskaya").setHouse("1").setApartment("10"))
+                .setVolume(volume).build();
     }
 }

@@ -14,6 +14,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import libs.ddd.DomainEventPublisher;
 import libs.errs.Result;
 import microarch.delivery.core.domain.model.Location;
 import microarch.delivery.core.domain.model.Volume;
@@ -29,8 +30,9 @@ class AssignOrderCommandHandlerTest {
     private final OrderRepository orderRepository = mock(OrderRepository.class);
     private final CourierRepository courierRepository = mock(CourierRepository.class);
     private final CourierDispatchService dispatchService = mock(CourierDispatchService.class);
+    private final DomainEventPublisher domainEventPublisher = mock(DomainEventPublisher.class);
     private final AssignOrderCommandHandlerImpl handler = new AssignOrderCommandHandlerImpl(orderRepository,
-            courierRepository, dispatchService);
+            courierRepository, dispatchService, domainEventPublisher);
 
     @Test
     void dispatchesCreatedOrderToCourierAndSavesBoth() {
@@ -47,6 +49,7 @@ class AssignOrderCommandHandlerTest {
         assertThat(result.isSuccess()).isTrue();
         verify(orderRepository).update(order);
         verify(courierRepository).update(courier);
+        verify(domainEventPublisher).publish(any());
     }
 
     @Test
@@ -58,7 +61,7 @@ class AssignOrderCommandHandlerTest {
 
         assertThat(result.isFailure()).isTrue();
         assertThat(result.getError()).isEqualTo(AssignOrderCommandHandlerImpl.Errors.noOrderToAssign());
-        verifyNoInteractions(dispatchService, courierRepository);
+        verifyNoInteractions(dispatchService, courierRepository, domainEventPublisher);
     }
 
     @Test
@@ -77,5 +80,6 @@ class AssignOrderCommandHandlerTest {
         assertThat(result.getError()).isEqualTo(CourierDispatchServiceImpl.Errors.noAvailableCourier());
         verify(orderRepository, never()).update(any());
         verify(courierRepository, never()).update(any());
+        verifyNoInteractions(domainEventPublisher);
     }
 }
